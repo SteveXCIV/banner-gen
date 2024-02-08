@@ -1,5 +1,6 @@
 use nannou::prelude::*;
 use rand::{Rng, RngCore};
+use std::iter;
 
 fn main() {
     nannou::app(model).event(event).run();
@@ -115,12 +116,16 @@ fn view(app: &App, model: &Model, frame: Frame) {
     draw.background().color(BLUE);
 
     let width_per_step = frame.rect().w() / (model.points.len() as f32 - 1.0);
-    let start_x = frame.rect().left();
+    let rect = frame.rect();
+    let left_cap = iter::once((rect.left() - 50.0, rect.bottom() * 20.0));
+    let right_cap = iter::once((rect.right() + 50.0, rect.bottom() * 2.0));
     let points = model.points.iter().cloned().enumerate().map(|(i, y)| {
-        let x = (i as f32 * width_per_step) + start_x;
+        let x = (i as f32 * width_per_step) + rect.left();
         (x, y * 100.0)
     });
-    draw.polyline().weight(1.0).color(PINK).points(points);
+    draw.polygon()
+        .color(PINK)
+        .points(left_cap.chain(points).chain(right_cap));
 
     draw.to_frame(app, &frame).expect("failed to render sketch");
 }
