@@ -1,13 +1,14 @@
 use nannou::prelude::*;
-use rand::Rng;
+use rand::{Rng, RngCore};
 
 fn main() {
-    nannou::app(model).run();
+    nannou::app(model).event(event).run();
 }
 
 struct Model {
     window: WindowId,
     points: Vec<f32>,
+    rng: Box<dyn RngCore>,
 }
 
 fn midpoint(i: usize, j: usize) -> usize {
@@ -66,6 +67,10 @@ fn compute_points<R: Rng>(
         .collect::<Vec<_>>()
 }
 
+fn temp_compute_points<R: Rng>(rng: &mut R) -> Vec<f32> {
+    compute_points(rng, 10, 1.0, 0.9)
+}
+
 fn model(app: &App) -> Model {
     let window = app
         .new_window()
@@ -73,8 +78,35 @@ fn model(app: &App) -> Model {
         .build()
         .expect("failed to build window");
     let mut rng = rand::thread_rng();
-    let points = compute_points(&mut rng, 10, 1.0, 0.9);
-    Model { window, points }
+    let points = temp_compute_points(&mut rng);
+    Model {
+        window,
+        points,
+        rng: Box::new(rng),
+    }
+}
+
+fn event(app: &App, model: &mut Model, event: Event) {
+    match event {
+        Event::WindowEvent {
+            simple: Some(e), ..
+        } => {
+            window_event(app, model, e);
+        }
+        _ => {}
+    }
+}
+
+fn window_event(_app: &App, model: &mut Model, window_event: WindowEvent) {
+    match window_event {
+        KeyPressed(key) => match key {
+            Key::Space => {
+                model.points = temp_compute_points(&mut model.rng);
+            }
+            _ => {}
+        },
+        _ => {}
+    }
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
