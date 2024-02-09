@@ -1,3 +1,4 @@
+use colorgrad::Gradient;
 use nannou::{color::IntoLinSrgba, draw::properties::ColorScalar, prelude::*};
 use rand::{Rng, RngCore};
 use std::iter;
@@ -8,6 +9,7 @@ fn main() {
 
 struct Model {
     window: WindowId,
+    gradient: WrappedGradient,
     layers: Vec<Layer>,
     rng: Box<dyn RngCore>,
 }
@@ -36,6 +38,15 @@ impl Layer {
             .z(z_index)
             .color(color)
             .points(left_cap.chain(points).chain(right_cap));
+    }
+}
+
+struct WrappedGradient(Gradient);
+
+impl WrappedGradient {
+    pub fn sample<N: Into<f64>>(&self, n: N) -> impl IntoLinSrgba<ColorScalar> {
+        let c = self.0.at(n.into());
+        Rgb::from_components((c.r, c.g, c.b))
     }
 }
 
@@ -106,11 +117,12 @@ fn model(app: &App) -> Model {
         .build()
         .expect("failed to build window");
     let mut rng = rand::thread_rng();
+    let gradient = WrappedGradient(colorgrad::inferno());
     let steps = 10;
-    let initial_displacement = 100.0;
+    let initial_displacement = 30.0;
     let smoothness = 0.9;
-    let layers = (-1..2)
-        .map(|i| 100.0 * i as f32)
+    let layers = (-3..3)
+        .map(|i| 80.0 * i as f32 + 100.0)
         .map(|baseline_y| Layer {
             baseline_y,
             points: compute_points(&mut rng, steps, initial_displacement, smoothness),
@@ -118,6 +130,7 @@ fn model(app: &App) -> Model {
         .collect::<Vec<_>>();
     Model {
         window,
+        gradient,
         layers,
         rng: Box::new(rng),
     }
@@ -156,13 +169,15 @@ fn window_event(_app: &App, model: &mut Model, window_event: WindowEvent) {
 
 fn view(app: &App, model: &Model, frame: Frame) {
     let draw = app.draw();
+    let gradient = &model.gradient;
 
-    draw.background().color(BLUE);
+    draw.background().color(gradient.sample(0.0));
 
     let rect = frame.rect();
 
+    let stack_height = (1 + model.layers.len()) as f64;
     for (index, layer) in model.layers.iter().enumerate() {
-        let color = if index % 2 == 0 { PINK } else { GREEN };
+        let color = gradient.sample((index as f64 + 1.0) / stack_height);
         let z_index = -(index as f32);
         layer.draw_to(&draw, &rect, z_index, color);
     }
