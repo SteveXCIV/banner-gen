@@ -1,4 +1,4 @@
-use nannou::prelude::*;
+use nannou::{color::IntoLinSrgba, draw::properties::ColorScalar, prelude::*};
 use rand::{Rng, RngCore};
 use std::iter;
 
@@ -8,8 +8,28 @@ fn main() {
 
 struct Model {
     window: WindowId,
-    points: Vec<f32>,
+    layers: Vec<Layer>,
     rng: Box<dyn RngCore>,
+}
+
+struct Layer {
+    baseline_y: f32,
+    points: Vec<f32>,
+}
+
+impl Layer {
+    pub fn draw_to<C: IntoLinSrgba<ColorScalar>>(&self, draw: &Draw, rect: &Rect, color: C) {
+        let width_per_step = rect.w() / (self.points.len() as f32 - 1.0);
+        let left_cap = iter::once((rect.left() - 50.0, rect.bottom() * 20.0));
+        let right_cap = iter::once((rect.right() + 50.0, rect.bottom() * 20.0));
+        let points = self.points.iter().cloned().enumerate().map(|(i, y)| {
+            let x = (i as f32 * width_per_step) + rect.left();
+            (x, y + self.baseline_y)
+        });
+        draw.polygon()
+            .color(color)
+            .points(left_cap.chain(points).chain(right_cap));
+    }
 }
 
 fn midpoint(i: usize, j: usize) -> usize {
@@ -69,7 +89,7 @@ fn compute_points<R: Rng>(
 }
 
 fn temp_compute_points<R: Rng>(rng: &mut R) -> Vec<f32> {
-    compute_points(rng, 10, 1.0, 0.9)
+    compute_points(rng, 10, 100.0, 0.9)
 }
 
 fn model(app: &App) -> Model {
@@ -79,10 +99,13 @@ fn model(app: &App) -> Model {
         .build()
         .expect("failed to build window");
     let mut rng = rand::thread_rng();
-    let points = temp_compute_points(&mut rng);
+    let layers = vec![Layer {
+        baseline_y: 0.0,
+        points: temp_compute_points(&mut rng),
+    }];
     Model {
         window,
-        points,
+        layers,
         rng: Box::new(rng),
     }
 }
@@ -102,7 +125,15 @@ fn window_event(_app: &App, model: &mut Model, window_event: WindowEvent) {
     match window_event {
         KeyPressed(key) => match key {
             Key::Space => {
-                model.points = temp_compute_points(&mut model.rng);
+                let layers = model
+                    .layers
+                    .iter()
+                    .map(|l| Layer {
+                        baseline_y: l.baseline_y,
+                        points: temp_compute_points(&mut model.rng),
+                    })
+                    .collect::<Vec<_>>();
+                model.layers = layers;
             }
             _ => {}
         },
@@ -115,17 +146,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     draw.background().color(BLUE);
 
-    let width_per_step = frame.rect().w() / (model.points.len() as f32 - 1.0);
     let rect = frame.rect();
-    let left_cap = iter::once((rect.left() - 50.0, rect.bottom() * 20.0));
-    let right_cap = iter::once((rect.right() + 50.0, rect.bottom() * 2.0));
-    let points = model.points.iter().cloned().enumerate().map(|(i, y)| {
-        let x = (i as f32 * width_per_step) + rect.left();
-        (x, y * 100.0)
-    });
-    draw.polygon()
-        .color(PINK)
-        .points(left_cap.chain(points).chain(right_cap));
+
+    for layer in model.layers.iter() {
+        layer.draw_to(&draw, &rect, PINK);
+    }
 
     draw.to_frame(app, &frame).expect("failed to render sketch");
 }
