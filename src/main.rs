@@ -18,7 +18,13 @@ struct Layer {
 }
 
 impl Layer {
-    pub fn draw_to<C: IntoLinSrgba<ColorScalar>>(&self, draw: &Draw, rect: &Rect, color: C) {
+    pub fn draw_to<C: IntoLinSrgba<ColorScalar>>(
+        &self,
+        draw: &Draw,
+        rect: &Rect,
+        z_index: f32,
+        color: C,
+    ) {
         let width_per_step = rect.w() / (self.points.len() as f32 - 1.0);
         let left_cap = iter::once((rect.left() - 50.0, rect.bottom() * 20.0));
         let right_cap = iter::once((rect.right() + 50.0, rect.bottom() * 20.0));
@@ -27,6 +33,7 @@ impl Layer {
             (x, y + self.baseline_y)
         });
         draw.polygon()
+            .z(z_index)
             .color(color)
             .points(left_cap.chain(points).chain(right_cap));
     }
@@ -99,10 +106,16 @@ fn model(app: &App) -> Model {
         .build()
         .expect("failed to build window");
     let mut rng = rand::thread_rng();
-    let layers = vec![Layer {
-        baseline_y: 0.0,
-        points: temp_compute_points(&mut rng),
-    }];
+    let steps = 10;
+    let initial_displacement = 100.0;
+    let smoothness = 0.9;
+    let layers = (-1..2)
+        .map(|i| 100.0 * i as f32)
+        .map(|baseline_y| Layer {
+            baseline_y,
+            points: compute_points(&mut rng, steps, initial_displacement, smoothness),
+        })
+        .collect::<Vec<_>>();
     Model {
         window,
         layers,
@@ -148,8 +161,10 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let rect = frame.rect();
 
-    for layer in model.layers.iter() {
-        layer.draw_to(&draw, &rect, PINK);
+    for (index, layer) in model.layers.iter().enumerate() {
+        let color = if index % 2 == 0 { PINK } else { GREEN };
+        let z_index = -(index as f32);
+        layer.draw_to(&draw, &rect, z_index, color);
     }
 
     draw.to_frame(app, &frame).expect("failed to render sketch");
