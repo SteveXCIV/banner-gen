@@ -1,7 +1,11 @@
 use colorgrad::Gradient;
 use nannou::{color::IntoLinSrgba, draw::properties::ColorScalar, prelude::*};
 use rand::{Rng, RngCore};
-use std::iter;
+use std::{
+    iter,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 fn main() {
     nannou::app(model).event(event).run();
@@ -150,7 +154,7 @@ fn event(app: &App, model: &mut Model, event: Event) {
     }
 }
 
-fn window_event(_app: &App, model: &mut Model, window_event: WindowEvent) {
+fn window_event(app: &App, model: &mut Model, window_event: WindowEvent) {
     match window_event {
         KeyPressed(key) => match key {
             Key::Space => {
@@ -163,6 +167,17 @@ fn window_event(_app: &App, model: &mut Model, window_event: WindowEvent) {
                     })
                     .collect::<Vec<_>>();
                 model.layers = layers;
+            }
+            Key::S => {
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("failed to compute current timestamp")
+                    .as_millis();
+                let filename = format!("banner_{}.png", timestamp);
+                let path = PathBuf::new()
+                    .join(std::env::current_dir().expect("failed to locate current working dir"))
+                    .join(filename);
+                app.main_window().capture_frame(path)
             }
             _ => {}
         },
