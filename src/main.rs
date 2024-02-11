@@ -113,16 +113,19 @@ fn temp_compute_points<R: Rng>(rng: &mut R) -> Vec<f32> {
 fn model(app: &App) -> Model {
     let window = app
         .new_window()
+        .size(1500, 500)
         .view(view)
         .build()
         .expect("failed to build window");
     let mut rng = rand::thread_rng();
     let gradient = WrappedGradient(colorgrad::inferno());
     let steps = 10;
-    let initial_displacement = 30.0;
-    let smoothness = 0.9;
+    let initial_displacement = 50.0;
+    let scale = 50.0;
+    let baseline = 0.0;
+    let smoothness = 0.7;
     let layers = (-3..3)
-        .map(|i| 80.0 * i as f32 + 100.0)
+        .map(|i| scale * i as f32 + baseline)
         .map(|baseline_y| Layer {
             baseline_y,
             points: compute_points(&mut rng, steps, initial_displacement, smoothness),
